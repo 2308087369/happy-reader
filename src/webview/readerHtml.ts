@@ -42,19 +42,22 @@ export function getReaderHtml(webview: vscode.Webview): string {
 			overflow-y: auto;
 			display: flex;
 			flex-direction: column;
-			gap: 4px;
+			gap: 8px;
 		}
 		.chapter-btn {
 			border: 1px solid transparent;
 			background: transparent;
 			color: inherit;
 			text-align: left;
-			padding: 6px 8px;
+			padding: 8px 10px;
 			border-radius: 6px;
 			cursor: pointer;
-			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
+			width: 100%;
+			display: block;
+			line-height: 1.45;
+			white-space: normal;
+			word-break: break-word;
+			overflow-wrap: anywhere;
 		}
 		.chapter-btn:hover {
 			background: var(--vscode-list-hoverBackground);
@@ -98,9 +101,13 @@ export function getReaderHtml(webview: vscode.Webview): string {
 			font-size: 18px;
 			white-space: pre-wrap;
 		}
+		.content.system {
+			background: var(--vscode-editor-background);
+			color: var(--vscode-editor-foreground);
+		}
 		.content.paper {
-			background: #f7f0dc;
-			color: #2b2b2b;
+			background: var(--vscode-editor-background);
+			color: var(--vscode-editor-foreground);
 		}
 		.content.dark {
 			background: #1f1f1f;
@@ -153,7 +160,7 @@ export function getReaderHtml(webview: vscode.Webview): string {
 			currentChapter: stored?.currentChapter ?? 0,
 			fontSize: stored?.fontSize ?? 18,
 			lineHeight: stored?.lineHeight ?? 1.8,
-			theme: stored?.theme ?? 'paper'
+			theme: normalizeTheme(stored?.theme)
 		};
 
 		function persist() {
@@ -239,6 +246,13 @@ export function getReaderHtml(webview: vscode.Webview): string {
 				.replaceAll("'", '&#39;');
 		}
 
+		function normalizeTheme(theme) {
+			if (theme === 'dark') {
+				return 'dark';
+			}
+			return 'system';
+		}
+
 		prevBtn.addEventListener('click', () => moveChapter(-1));
 		nextBtn.addEventListener('click', () => moveChapter(1));
 		decreaseFontBtn.addEventListener('click', () => {
@@ -263,7 +277,7 @@ export function getReaderHtml(webview: vscode.Webview): string {
 			postProgress();
 		});
 		themeBtn.addEventListener('click', () => {
-			model.theme = model.theme === 'paper' ? 'dark' : 'paper';
+			model.theme = model.theme === 'system' ? 'dark' : 'system';
 			renderContent();
 			postProgress();
 		});
@@ -276,7 +290,7 @@ export function getReaderHtml(webview: vscode.Webview): string {
 				model.currentChapter = Math.min(message.data.reading.currentChapter, model.chapters.length - 1);
 				model.fontSize = message.data.reading.fontSize;
 				model.lineHeight = message.data.reading.lineHeight;
-				model.theme = message.data.reading.theme;
+				model.theme = normalizeTheme(message.data.reading.theme);
 				render();
 				postProgress();
 			}

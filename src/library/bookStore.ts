@@ -6,7 +6,7 @@ export interface BookReadingState {
 	progress: number;
 	fontSize: number;
 	lineHeight: number;
-	theme: 'paper' | 'dark';
+	theme: 'system' | 'dark' | 'paper';
 }
 
 export interface BookItem {
@@ -65,7 +65,7 @@ export class BookStore {
 					progress: 0,
 					fontSize: 18,
 					lineHeight: 1.8,
-					theme: 'paper'
+					theme: 'system'
 				}
 			});
 		}

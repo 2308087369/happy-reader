@@ -4,13 +4,14 @@
   "description": "Common novel format reader",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.110.0"
+    "vscode": "^1.107.0"
   },
   "categories": [
     "Other"
   ],
   "activationEvents": [
     "onView:happyReader.bookshelf",
+    "onView:happyReader.reader",
     "onCommand:happy-reader.addBooks",
     "onCommand:happy-reader.openBook",
     "onCommand:happy-reader.refreshBookshelf",
@@ -32,6 +33,10 @@
         {
           "id": "happyReader.bookshelf",
           "name": "书架"
+        },
+        {
+          "id": "happyReader.reader",
+          "name": "阅读器"
         }
       ]
     },
@@ -99,7 +104,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.110.0",
+    "@types/vscode": "^1.107.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "typescript-eslint": "^8.56.1",

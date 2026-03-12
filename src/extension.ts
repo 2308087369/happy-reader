@@ -8,7 +8,10 @@ import { getReaderHtml } from './webview/readerHtml';
 export function activate(context: vscode.ExtensionContext) {
 	const store = new BookStore(context);
 	const shelfProvider = new BookShelfProvider(store);
-	const openedPanels = new Map<string, vscode.WebviewPanel>();
+	let readerView: vscode.WebviewView | undefined;
+	let readerReady = false;
+	let pendingBook: BookItem | undefined;
+	let loadToken = 0;
 	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 	statusBar.text = 'Happy Reader';
 	statusBar.show();
@@ -32,75 +35,89 @@ export function activate(context: vscode.ExtensionContext) {
 		return undefined;
 	};
 
-	const openBook = async (book: BookItem) => {
-		const existing = openedPanels.get(book.id);
-		if (existing) {
-			existing.reveal(vscode.ViewColumn.One, true);
-			renderStatus(book);
+	const loadBookToReader = async (book: BookItem) => {
+		if (!readerView || !readerReady) {
+			return;
+		}
+		const currentToken = ++loadToken;
+		try {
+			const content = await fs.readFile(book.filePath, 'utf8');
+			const chapters = parseTxtChapters(content);
+			if (currentToken !== loadToken || !readerView || !readerReady) {
+				return;
+			}
+			await store.markOpened(book.id);
+			const latest = store.getBookById(book.id) ?? book;
+			await readerView.webview.postMessage({
+				command: 'loadBook',
+				data: {
+					book: latest,
+					chapters,
+					reading: latest.reading
+				}
+			});
+			if (pendingBook?.id === book.id) {
+				pendingBook = undefined;
+			}
+			renderStatus(latest);
+			shelfProvider.refresh();
+		} catch {
+			vscode.window.showErrorMessage(`读取文件失败：${book.filePath}`);
+		}
+	};
+
+	const handleReaderMessage = async (message: { command?: string; data?: unknown }) => {
+		if (message.command === 'ready') {
+			readerReady = true;
+			if (pendingBook) {
+				await loadBookToReader(pendingBook);
+			}
 			return;
 		}
 
-		const panel = vscode.window.createWebviewPanel(
-			'happyReader.reader',
-			`阅读：${book.title}`,
-			{
-				viewColumn: vscode.ViewColumn.One,
-				preserveFocus: false
-			},
-			{
-				enableScripts: true,
-				retainContextWhenHidden: true
+		if (message.command === 'setProgress') {
+			const payload = message.data as { bookId: string } & Partial<BookReadingState>;
+			if (!payload.bookId) {
+				return;
 			}
-		);
+			await store.updateReading(payload.bookId, {
+				currentChapter: payload.currentChapter,
+				progress: payload.progress,
+				fontSize: payload.fontSize,
+				lineHeight: payload.lineHeight,
+				theme: payload.theme
+			});
+			const latest = store.getBookById(payload.bookId);
+			if (latest) {
+				renderStatus(latest);
+			}
+			shelfProvider.refresh();
+		}
+	};
 
-		openedPanels.set(book.id, panel);
-		panel.webview.html = getReaderHtml(panel.webview);
+	const readerViewProvider: vscode.WebviewViewProvider = {
+		resolveWebviewView(webviewView) {
+			readerView = webviewView;
+			readerReady = false;
+			webviewView.webview.options = {
+				enableScripts: true
+			};
+			webviewView.webview.html = getReaderHtml(webviewView.webview);
+			webviewView.webview.onDidReceiveMessage(handleReaderMessage);
+			webviewView.onDidDispose(() => {
+				if (readerView === webviewView) {
+					readerView = undefined;
+					readerReady = false;
+				}
+			});
+		}
+	};
+
+	const openBook = async (book: BookItem) => {
+		pendingBook = book;
 		renderStatus(book);
-
-		panel.onDidDispose(() => {
-			openedPanels.delete(book.id);
-		});
-
-		panel.webview.onDidReceiveMessage(async (message) => {
-			if (message.command === 'ready') {
-				try {
-					const content = await fs.readFile(book.filePath, 'utf8');
-					const chapters = parseTxtChapters(content);
-					const latest = store.getBookById(book.id) ?? book;
-					await store.markOpened(book.id);
-					panel.webview.postMessage({
-						command: 'loadBook',
-						data: {
-							book: latest,
-							chapters,
-							reading: latest.reading
-						}
-					});
-				} catch (error) {
-					vscode.window.showErrorMessage(`读取文件失败：${book.filePath}`);
-					panel.dispose();
-				}
-			}
-
-			if (message.command === 'setProgress') {
-				const payload = message.data as { bookId: string } & Partial<BookReadingState>;
-				if (!payload.bookId) {
-					return;
-				}
-				await store.updateReading(payload.bookId, {
-					currentChapter: payload.currentChapter,
-					progress: payload.progress,
-					fontSize: payload.fontSize,
-					lineHeight: payload.lineHeight,
-					theme: payload.theme
-				});
-				const latest = store.getBookById(payload.bookId);
-				if (latest) {
-					renderStatus(latest);
-				}
-				shelfProvider.refresh();
-			}
-		});
+		await vscode.commands.executeCommand('happyReader.reader.focus');
+		await loadBookToReader(book);
 	};
 
 	const addBooksCommand = vscode.commands.registerCommand('happy-reader.addBooks', async () => {
@@ -165,14 +182,20 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 		await store.removeBook(target.id);
-		const panel = openedPanels.get(target.id);
-		panel?.dispose();
+		if (pendingBook?.id === target.id) {
+			pendingBook = undefined;
+		}
 		shelfProvider.refresh();
 	});
 
 	context.subscriptions.push(
 		statusBar,
 		vscode.window.registerTreeDataProvider('happyReader.bookshelf', shelfProvider),
+		vscode.window.registerWebviewViewProvider('happyReader.reader', readerViewProvider, {
+			webviewOptions: {
+				retainContextWhenHidden: true
+			}
+		}),
 		addBooksCommand,
 		openBookCommand,
 		refreshCommand,
