@@ -1,0 +1,111 @@
+{
+  "name": "happy-reader",
+  "displayName": "happy-reader",
+  "description": "Common novel format reader",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.110.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:happyReader.bookshelf",
+    "onCommand:happy-reader.addBooks",
+    "onCommand:happy-reader.openBook",
+    "onCommand:happy-reader.refreshBookshelf",
+    "onCommand:happy-reader.removeBook"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "happyReader",
+          "title": "Happy Reader",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "views": {
+      "happyReader": [
+        {
+          "id": "happyReader.bookshelf",
+          "name": "书架"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "happy-reader.addBooks",
+        "title": "Happy Reader: 导入 TXT 书籍"
+      },
+      {
+        "command": "happy-reader.openBook",
+        "title": "Happy Reader: 打开书籍"
+      },
+      {
+        "command": "happy-reader.refreshBookshelf",
+        "title": "Happy Reader: 刷新书架"
+      },
+      {
+        "command": "happy-reader.removeBook",
+        "title": "Happy Reader: 从书架移除"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "happy-reader.addBooks",
+          "when": "view == happyReader.bookshelf",
+          "group": "navigation@1"
+        },
+        {
+          "command": "happy-reader.refreshBookshelf",
+          "when": "view == happyReader.bookshelf",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "happy-reader.openBook",
+          "when": "view == happyReader.bookshelf && viewItem == happyReader.book",
+          "group": "inline@1"
+        },
+        {
+          "command": "happy-reader.removeBook",
+          "when": "view == happyReader.bookshelf && viewItem == happyReader.book",
+          "group": "inline@2"
+        }
+      ]
+    }
+  },
+  "keywords": [
+    "reader",
+    "txt",
+    "novel"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.110.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
